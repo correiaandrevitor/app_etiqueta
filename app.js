@@ -65,6 +65,11 @@ const AuthService = {
     return Math.abs(h).toString(36);
   },
 
+  _validarSenha(senha) {
+    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*]).*$/;
+    return regex.test(senha);
+  },
+
   async register(email, senha) {
     const users = await DB.get('users');
     const chave = email.toLowerCase().trim();
@@ -180,17 +185,21 @@ function ModalConfirmar({ visivel, mensagem, aoConfirmar, aoCancelar }) {
 }
 
 // ─────────────────────────────────────────────
-// COMPONENTE: MODAL ENVIAR ORÇAMENTO (WHATSAPP)
+// COMPONENTE: MODAL ENVIAR ORÇAMENTO (WHATSAPP/EMAIL)
 // ─────────────────────────────────────────────
 function ModalEnviar({ visivel, item, remetente, aoFechar, aoToast }) {
   const [telefone, setTelefone] = useState('');
+  const [email, setEmail] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [abaSelecionada, setAbaSelecionada] = useState('whatsapp'); // 'whatsapp' ou 'email'
 
   const fmtValor = (n) => 'R$ ' + Number(n).toFixed(2).replace('.', ',');
   const fmtData  = (iso) => new Date(iso).toLocaleDateString('pt-BR');
 
   const limparEFechar = () => {
     setTelefone('');
+    setEmail('');
+    setAbaSelecionada('whatsapp');
     aoFechar();
   };
 
@@ -208,17 +217,7 @@ function ModalEnviar({ visivel, item, remetente, aoFechar, aoToast }) {
     return '(' + d.slice(0,2) + ') ' + d.slice(2,7) + '-' + d.slice(7,11);
   };
 
-  const enviarWhatsApp = async () => {
-    if (telefone.length < 10) {
-      aoToast('Informe um número com DDD (mínimo 10 dígitos)', 'erro');
-      return;
-    }
-
-    setEnviando(true);
-
-    // Número no formato internacional Brasil: 55 + DDD + número
-    const numeroIntl = '55' + telefone;
-
+  const gerarMensagem = () => {
     const linhas = [
       '🏷️ *Orçamento de Etiquetas*',
       '',
@@ -237,8 +236,20 @@ function ModalEnviar({ visivel, item, remetente, aoFechar, aoToast }) {
       '_Atenciosamente,_',
       '_' + remetente + '_',
     ].filter(l => l !== null);
+    return linhas.join('\n');
+  };
 
-    const mensagem = encodeURIComponent(linhas.join('\n'));
+  const enviarWhatsApp = async () => {
+    if (telefone.length < 10) {
+      aoToast('Informe um número com DDD (mínimo 10 dígitos)', 'erro');
+      return;
+    }
+
+    setEnviando(true);
+
+    // Número no formato internacional Brasil: 55 + DDD + número
+    const numeroIntl = '55' + telefone;
+    const mensagem = encodeURIComponent(gerarMensagem());
     const url = 'whatsapp://send?phone=' + numeroIntl + '&text=' + mensagem;
     const urlFallback = 'https://wa.me/' + numeroIntl + '?text=' + mensagem;
 
@@ -247,13 +258,35 @@ function ModalEnviar({ visivel, item, remetente, aoFechar, aoToast }) {
       if (podeNativo) {
         await Linking.openURL(url);
       } else {
-        // Fallback para wa.me (funciona mesmo sem app instalado via browser)
         await Linking.openURL(urlFallback);
       }
       aoToast('WhatsApp aberto com o orçamento!');
       limparEFechar();
     } catch (e) {
       aoToast('Erro ao abrir WhatsApp', 'erro');
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const enviarEmail = async () => {
+    if (!email.trim()) {
+      aoToast('Informe um e-mail válido', 'erro');
+      return;
+    }
+
+    setEnviando(true);
+
+    const assunto = encodeURIComponent('Orçamento de Etiquetas');
+    const corpo = encodeURIComponent(gerarMensagem());
+    const urlEmail = 'mailto:' + email + '?subject=' + assunto + '&body=' + corpo;
+
+    try {
+      await Linking.openURL(urlEmail);
+      aoToast('E-mail aberto com o orçamento!');
+      limparEFechar();
+    } catch (e) {
+      aoToast('Erro ao abrir e-mail', 'erro');
     } finally {
       setEnviando(false);
     }
@@ -267,9 +300,27 @@ function ModalEnviar({ visivel, item, remetente, aoFechar, aoToast }) {
         <View style={st.enviarBox}>
           {/* Cabeçalho */}
           <View style={st.enviarHeader}>
-            <Text style={st.enviarTitulo}>💬  Enviar pelo WhatsApp</Text>
+            <Text style={st.enviarTitulo}>📤  Enviar Orçamento</Text>
             <TouchableOpacity onPress={limparEFechar} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <Text style={st.enviarFechar}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Abas */}
+          <View style={st.abas}>
+            <TouchableOpacity
+              style={[st.abaBtn, abaSelecionada === 'whatsapp' && st.abaBtnAtiva]}
+              onPress={() => setAbaSelecionada('whatsapp')}
+              activeOpacity={0.8}
+            >
+              <Text style={[st.abaBtnTexto, abaSelecionada === 'whatsapp' && st.abaBtnTextoAtiva]}>💬  WhatsApp</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[st.abaBtn, abaSelecionada === 'email' && st.abaBtnAtiva]}
+              onPress={() => setAbaSelecionada('email')}
+              activeOpacity={0.8}
+            >
+              <Text style={[st.abaBtnTexto, abaSelecionada === 'email' && st.abaBtnTextoAtiva]}>✉️  E-mail</Text>
             </TouchableOpacity>
           </View>
 
@@ -286,26 +337,51 @@ function ModalEnviar({ visivel, item, remetente, aoFechar, aoToast }) {
             </Text>
           </View>
 
-          {/* Campo telefone */}
-          <Text style={st.enviarCampoLabel}>WhatsApp do cliente (com DDD)</Text>
-          <View style={st.campoLinha}>
-            <Text style={st.telPrefixo}>🇧🇷 +55</Text>
-            <TextInput
-              style={[st.input, { flex: 1 }]}
-              value={telefoneFormatado()}
-              onChangeText={aoMudarTelefone}
-              placeholder="(11) 91234-5678"
-              placeholderTextColor="#b08060"
-              keyboardType="phone-pad"
-              autoCapitalize="none"
-              autoCorrect={false}
-              maxLength={16}
-            />
-          </View>
+          {/* CONTEÚDO DA ABA WHATSAPP */}
+          {abaSelecionada === 'whatsapp' && (
+            <>
+              <Text style={st.enviarCampoLabel}>WhatsApp do cliente (com DDD)</Text>
+              <View style={st.campoLinha}>
+                <Text style={st.telPrefixo}>🇧🇷 +55</Text>
+                <TextInput
+                  style={[st.input, { flex: 1 }]}
+                  value={telefoneFormatado()}
+                  onChangeText={aoMudarTelefone}
+                  placeholder="(11) 91234-5678"
+                  placeholderTextColor="#b08060"
+                  keyboardType="phone-pad"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  maxLength={16}
+                />
+              </View>
+              <Text style={st.enviarDica}>
+                O WhatsApp será aberto com o orçamento formatado e pronto para enviar.
+              </Text>
+            </>
+          )}
 
-          <Text style={st.enviarDica}>
-            O WhatsApp será aberto com o orçamento formatado e pronto para enviar.
-          </Text>
+          {/* CONTEÚDO DA ABA EMAIL */}
+          {abaSelecionada === 'email' && (
+            <>
+              <Text style={st.enviarCampoLabel}>E-mail do cliente</Text>
+              <View style={st.campoLinha}>
+                <TextInput
+                  style={[st.input, { flex: 1 }]}
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="cliente@email.com"
+                  placeholderTextColor="#b08060"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+              <Text style={st.enviarDica}>
+                O aplicativo de e-mail será aberto com o orçamento já preenchido e pronto para enviar.
+              </Text>
+            </>
+          )}
 
           {/* Botões */}
           <View style={st.confirmBtns}>
@@ -314,19 +390,53 @@ function ModalEnviar({ visivel, item, remetente, aoFechar, aoToast }) {
             </TouchableOpacity>
             <TouchableOpacity
               style={[st.btnEnviar, enviando && st.btnDesabilitado]}
-              onPress={enviarWhatsApp}
+              onPress={abaSelecionada === 'whatsapp' ? enviarWhatsApp : enviarEmail}
               disabled={enviando}
               activeOpacity={0.85}
             >
               {enviando
                 ? <ActivityIndicator color="#fff" size="small" />
-                : <Text style={st.btnEnviarTexto}>Enviar  💬</Text>
+                : <Text style={st.btnEnviarTexto}>
+                    {abaSelecionada === 'whatsapp' ? 'Enviar  💬' : 'Enviar  ✉️'}
+                  </Text>
               }
             </TouchableOpacity>
           </View>
         </View>
       </View>
     </Modal>
+  );
+}
+
+// ─────────────────────────────────────────────
+// COMPONENTE: INDICADOR DE FORÇA DE SENHA
+// ─────────────────────────────────────────────
+function IndicadorForcaSenha({ senha, mostrarRequisitos = false }) {
+  const temMinuscula = /[a-z]/.test(senha);
+  const temMaiuscula = /[A-Z]/.test(senha);
+  const temNumero = /[0-9]/.test(senha);
+  const temEspecial = /[!@#$%^&*]/.test(senha);
+  const atendeTodos = temMinuscula && temMaiuscula && temNumero && temEspecial && senha.length >= 8;
+
+  if (!mostrarRequisitos) return null;
+
+  const Requisito = ({ atendido, texto }) => (
+    <View style={st.requisitoLinha}>
+      <Text style={{ fontSize: 12, marginRight: 8 }}>{atendido ? '✓' : '○'}</Text>
+      <Text style={[st.requisitoTexto, atendido ? st.requisitoAtendido : st.requisitoNaoAtendido]}>
+        {texto}
+      </Text>
+    </View>
+  );
+
+  return (
+    <View style={st.requisitoBox}>
+      <Requisito atendido={senha.length >= 8} texto="Mínimo 8 caracteres" />
+      <Requisito atendido={temMaiuscula} texto="Letra maiúscula (A-Z)" />
+      <Requisito atendido={temMinuscula} texto="Letra minúscula (a-z)" />
+      <Requisito atendido={temNumero} texto="Número (0-9)" />
+      <Requisito atendido={temEspecial} texto="Caractere especial (!@#$%^&*)" />
+    </View>
   );
 }
 
@@ -390,8 +500,13 @@ function TelaLogin({ aoLogar }) {
       setErroMsg('Preencha todos os campos obrigatórios');
       return;
     }
-    if (senha.length < 6) {
-      setErroMsg('A senha deve ter pelo menos 6 caracteres');
+    if (senha.length < 8) {
+      setErroMsg('A senha deve ter pelo menos 8 caracteres');
+      return;
+    }
+
+    if (!modoLogin && !AuthService._validarSenha(senha)) {
+      setErroMsg('A senha deve conter: maiúscula, minúscula, número e caractere especial (!@#$%^&*)');
       return;
     }
 
@@ -519,7 +634,7 @@ function TelaLogin({ aoLogar }) {
               label="Senha"
               valor={senha}
               aoMudar={setSenha}
-              placeholder="mínimo 6 caracteres"
+              placeholder={modoLogin ? "senha" : "mínimo 8 caracteres"}
               senha={!mostrarSenha}
               iconeDir={
                 <BotaoOlho
@@ -528,6 +643,9 @@ function TelaLogin({ aoLogar }) {
                 />
               }
             />
+
+            {/* Indicador de força da senha (só no cadastro) */}
+            {!modoLogin && <IndicadorForcaSenha senha={senha} mostrarRequisitos={true} />}
 
             {/* ── CAMPO: CONFIRMAR SENHA (só no cadastro) ── */}
             {!modoLogin && (
@@ -871,6 +989,16 @@ const st = StyleSheet.create({
   },
   okTexto: { color: '#15803d', fontSize: 13 },
 
+  // ── REQUISITOS DE SENHA ────────────────────
+  requisitoBox: {
+    backgroundColor: '#fdf8f3', borderWidth: 1, borderColor: '#e8d5be',
+    borderRadius: 10, padding: 12, marginBottom: 14,
+  },
+  requisitoLinha: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  requisitoTexto: { fontSize: 12, fontWeight: '500' },
+  requisitoAtendido: { color: '#16a34a' },
+  requisitoNaoAtendido: { color: '#9a7560' },
+
   // ── INPUTS ──────────────────────────────────
   campoWrap:  { marginBottom: 14 },
   campoLabel: {
@@ -1018,6 +1146,19 @@ const st = StyleSheet.create({
   enviarTitulo: { fontSize: 17, fontWeight: '700', color: COR.marrom },
   enviarFechar: { fontSize: 18, color: '#aaa', fontWeight: '700' },
 
+  // Abas do modal
+  abas: {
+    flexDirection: 'row', backgroundColor: '#f5ede3',
+    borderRadius: 10, padding: 4, marginBottom: 16,
+  },
+  abaBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
+  abaBtnAtiva: {
+    backgroundColor: '#fff',
+    shadowColor: COR.laranja, shadowOpacity: 0.15, shadowRadius: 4, elevation: 2,
+  },
+  abaBtnTexto: { fontSize: 13, fontWeight: '600', color: '#8a6a4a' },
+  abaBtnTextoAtiva: { color: COR.laranja },
+
   enviarResumo: {
     backgroundColor: '#fdf8f3', borderRadius: 12,
     padding: 14, marginBottom: 18,
@@ -1039,4 +1180,6 @@ const st = StyleSheet.create({
     backgroundColor: COR.verde, alignItems: 'center',
   },
   btnEnviarTexto: { fontSize: 14, fontWeight: '700', color: '#fff' },
+
+  telPrefixo: { paddingHorizontal: 12, fontSize: 14, fontWeight: '600', color: COR.marrom },
 });
