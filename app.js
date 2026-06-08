@@ -110,9 +110,9 @@ const OrcService = {
       id,
       userId,
       quantidade: parseFloat(orc.quantidade) || 0,
-      tamanho: orc.tamanho || '',
+      largura: orc.largura || '',
+      comprimento: orc.comprimento || '',
       material: orc.material || '',
-      impressao: orc.impressao || '',
       precoUnit: parseFloat(orc.precoUnit) || 0,
       total: parseFloat(orc.total) || 0,
       criadoEm: new Date().toISOString(),
@@ -249,9 +249,9 @@ function ModalEnviar({ visivel, item, remetente, aoFechar, aoToast }) {
       '🏷️ *Orçamento de Etiquetas*',
       '',
       '━━━━━━━━━━━━━━━━━━━━━',
-      item.tamanho ? '📐 *Tamanho:*    ' + item.tamanho : null,
       item.material ? '🧾 *Material:*   ' + item.material : null,
-      item.impressao ? '🖨 *Impressão:*  ' + item.impressao : null,
+      item.largura ? '↔️ *Largura:*    ' + item.largura : null,
+      item.comprimento ? '↕️ *Comprimento:* ' + item.comprimento : null,
       '📦 *Quantidade:* ' + item.quantidade + ' unidades',
       '💲 *Preço unit.:* ' + fmtValor(item.precoUnit),
       '━━━━━━━━━━━━━━━━━━━━━',
@@ -379,8 +379,9 @@ function ModalEnviar({ visivel, item, remetente, aoFechar, aoToast }) {
             </View>
             <Text style={st.enviarResumoDetalhe}>
               {item.quantidade} un × {fmtValor(item.precoUnit)}
-              {item.tamanho ? '  •  ' + item.tamanho : ''}
               {item.material ? '  •  ' + item.material : ''}
+              {item.largura ? '  •  ' + item.largura : ''}
+              {item.comprimento ? '  •  ' + item.comprimento : ''}
             </Text>
           </View>
 
@@ -768,10 +769,10 @@ function TelaLogin({ aoLogar }) {
 // TELA PRINCIPAL — ORÇAMENTOS
 // ─────────────────────────────────────────────
 const FORM_VAZIO = {
-  quantidade: '',
-  tamanho: '',
   material: '',
-  impressao: '',
+  largura: '',
+  comprimento: '',
+  quantidade: '',
   precoUnit: '',
   total: '0,00',
 };
@@ -883,6 +884,33 @@ function TelaOrcamentos({ user, aoSair }) {
           {/* ── FORMULÁRIO ── */}
           <Text style={st.secaoTitulo}>Novo Orçamento</Text>
           <View style={st.formCard}>
+            <Campo
+              label="Material"
+              valor={form.material}
+              aoMudar={(v) => atualizarCampo('material', v)}
+              placeholder="ex: BOPP"
+            />
+
+            <View style={st.linha2}>
+              <View style={{ flex: 1 }}>
+                <Campo
+                  label="Largura"
+                  valor={form.largura}
+                  aoMudar={(v) => atualizarCampo('largura', v)}
+                  placeholder="ex: 10cm"
+                />
+              </View>
+              <View style={{ width: 10 }} />
+              <View style={{ flex: 1 }}>
+                <Campo
+                  label="Comprimento"
+                  valor={form.comprimento}
+                  aoMudar={(v) => atualizarCampo('comprimento', v)}
+                  placeholder="ex: 5cm"
+                />
+              </View>
+            </View>
+
             <View style={st.linha2}>
               <View style={{ flex: 1 }}>
                 <Campo
@@ -896,41 +924,14 @@ function TelaOrcamentos({ user, aoSair }) {
               <View style={{ width: 10 }} />
               <View style={{ flex: 1 }}>
                 <Campo
-                  label="Tamanho"
-                  valor={form.tamanho}
-                  aoMudar={(v) => atualizarCampo('tamanho', v)}
-                  placeholder="ex: 10x5cm"
+                  label="Preço Unitário (R$)"
+                  valor={form.precoUnit}
+                  aoMudar={(v) => atualizarCampo('precoUnit', v)}
+                  placeholder="ex: 0.25"
+                  teclado="numeric"
                 />
               </View>
             </View>
-
-            <View style={st.linha2}>
-              <View style={{ flex: 1 }}>
-                <Campo
-                  label="Material"
-                  valor={form.material}
-                  aoMudar={(v) => atualizarCampo('material', v)}
-                  placeholder="ex: BOPP"
-                />
-              </View>
-              <View style={{ width: 10 }} />
-              <View style={{ flex: 1 }}>
-                <Campo
-                  label="Impressão"
-                  valor={form.impressao}
-                  aoMudar={(v) => atualizarCampo('impressao', v)}
-                  placeholder="ex: 4 cores"
-                />
-              </View>
-            </View>
-
-            <Campo
-              label="Preço Unitário (R$)"
-              valor={form.precoUnit}
-              aoMudar={(v) => atualizarCampo('precoUnit', v)}
-              placeholder="ex: 0.25"
-              teclado="numeric"
-            />
 
             <View style={st.totalBox}>
               <Text style={st.totalLabel}>Total</Text>
@@ -976,14 +977,14 @@ function TelaOrcamentos({ user, aoSair }) {
                   <Text style={st.itemLinha}>
                     Qtd: {item.quantidade} × R$ {formatarValor(item.precoUnit)}
                   </Text>
-                  {!!item.tamanho && (
-                    <Text style={st.itemLinha}>📐 {item.tamanho}</Text>
-                  )}
                   {!!item.material && (
                     <Text style={st.itemLinha}>🧾 {item.material}</Text>
                   )}
-                  {!!item.impressao && (
-                    <Text style={st.itemLinha}>🖨 {item.impressao}</Text>
+                  {!!item.largura && (
+                    <Text style={st.itemLinha}>↔️ Largura: {item.largura}</Text>
+                  )}
+                  {!!item.comprimento && (
+                    <Text style={st.itemLinha}>↕️ Comprimento: {item.comprimento}</Text>
                   )}
                   <Text style={st.itemData}>{formatarData(item.criadoEm)}</Text>
                 </View>
