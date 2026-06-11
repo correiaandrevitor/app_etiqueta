@@ -16,6 +16,8 @@ import {
   Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { initializeApp, getApps } from 'firebase/app';
+import { getFirestore, collection, getDocs } from 'firebase/firestore';
 
 // ─────────────────────────────────────────────
 // CORES
@@ -30,6 +32,42 @@ const COR = {
   verde: '#16a34a',
   verdeClr: '#dcfce7',
   verdeBorda: '#86efac',
+};
+
+// ─────────────────────────────────────────────
+// FIREBASE — Configuração
+// Substitua os valores abaixo pelos do seu projeto Firebase:
+// Console → Configurações do Projeto → Seus apps → SDK
+// ─────────────────────────────────────────────
+const FIREBASE_CONFIG = {
+  apiKey: 'SUA_API_KEY',
+  authDomain: 'SEU_PROJETO.firebaseapp.com',
+  projectId: 'SEU_PROJECT_ID',
+  storageBucket: 'SEU_PROJETO.appspot.com',
+  messagingSenderId: 'SEU_SENDER_ID',
+  appId: 'SEU_APP_ID',
+};
+
+// Inicializa apenas uma vez (evita duplicação no hot reload)
+const firebaseApp =
+  getApps().length === 0 ? initializeApp(FIREBASE_CONFIG) : getApps()[0];
+const firestore = getFirestore(firebaseApp);
+
+// ─────────────────────────────────────────────
+// MATERIAL SERVICE — busca materiais/preços no Firestore
+// Estrutura esperada na coleção "materiais":
+//   { nome: "BOPP", preco: 0.25 }
+// ─────────────────────────────────────────────
+const MaterialService = {
+  async listar() {
+    try {
+      const snap = await getDocs(collection(firestore, 'materiais'));
+      return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    } catch (e) {
+      console.warn('Firebase: erro ao buscar materiais', e);
+      return [];
+    }
+  },
 };
 
 // ─────────────────────────────────────────────
@@ -509,6 +547,108 @@ function IndicadorForcaSenha({ senha, mostrarRequisitos = false }) {
 }
 
 // ─────────────────────────────────────────────
+// COMPONENTE: CAMPO MATERIAL (datalist + Firebase)
+// Exibe autocomplete com materiais do Firestore.
+// Ao selecionar, dispara aoSelecionarMaterial({ nome, preco }).
+// ─────────────────────────────────────────────
+function CampoMaterial({
+  valor,
+  aoMudar,
+  aoSelecionarMaterial,
+  materiais = [],
+  carregandoMateriais = false,
+}) {
+  const [sugestoes, setSugestoes] = useState([]);
+  const [aberta, setAberta] = useState(false);
+
+  const filtrar = (texto) => {
+    aoMudar(texto);
+    if (texto.trim().length === 0) {
+      setSugestoes([]);
+      setAberta(false);
+      return;
+    }
+    const found = materiais.filter((m) =>
+      m.nome.toLowerCase().includes(texto.toLowerCase())
+    );
+    setSugestoes(found);
+    setAberta(found.length > 0);
+  };
+
+  const selecionar = (material) => {
+    aoMudar(material.nome);
+    aoSelecionarMaterial(material);
+    setSugestoes([]);
+    setAberta(false);
+  };
+
+  const mostrarTodos = () => {
+    if (materiais.length > 0) {
+      setSugestoes(materiais);
+      setAberta(true);
+    }
+  };
+
+  return (
+    <View style={[st.campoWrap, { zIndex: 10 }]}>
+      <Text style={st.campoLabel}>Material</Text>
+      <View
+        style={[
+          st.campoLinha,
+          aberta && st.campoLinhaAberta,
+        ]}>
+        <TextInput
+          style={[st.input, { flex: 1 }]}
+          value={valor}
+          onChangeText={filtrar}
+          onFocus={mostrarTodos}
+          onBlur={() => setTimeout(() => setAberta(false), 150)}
+          placeholder={
+            carregandoMateriais ? 'Carregando materiais…' : 'ex: BOPP'
+          }
+          placeholderTextColor="#b08060"
+          autoCapitalize="characters"
+          autoCorrect={false}
+        />
+        {carregandoMateriais ? (
+          <ActivityIndicator
+            size="small"
+            color={COR.laranja}
+            style={{ marginHorizontal: 10 }}
+          />
+        ) : (
+          <TouchableOpacity
+            onPress={mostrarTodos}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={{ paddingHorizontal: 12 }}>
+            <Text style={{ color: COR.laranja, fontSize: 12 }}>
+              {aberta ? '▲' : '▼'}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {aberta && sugestoes.length > 0 && (
+        <View style={st.sugestoesLista}>
+          {sugestoes.map((m) => (
+            <TouchableOpacity
+              key={m.id}
+              style={st.sugestaoItem}
+              onPress={() => selecionar(m)}
+              activeOpacity={0.7}>
+              <Text style={st.sugestaoNome}>{m.nome}</Text>
+              <Text style={st.sugestaoPreco}>
+                R$ {Number(m.preco).toFixed(2).replace('.', ',')}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────
 // COMPONENTE: CAMPO DE INPUT
 // ─────────────────────────────────────────────
 function Campo({
@@ -780,6 +920,8 @@ const FORM_VAZIO = {
 function TelaOrcamentos({ user, aoSair }) {
   const [form, setForm] = useState(FORM_VAZIO);
   const [lista, setLista] = useState([]);
+  const [materiais, setMateriais] = useState([]);
+  const [carregandoMateriais, setCarregandoMateriais] = useState(false);
   const [carregando, setCarregando] = useState(false);
   const [toast, setToast] = useState(null);
   const [confirmar, setConfirmar] = useState(null);
@@ -787,7 +929,15 @@ function TelaOrcamentos({ user, aoSair }) {
 
   useEffect(() => {
     carregarLista();
+    carregarMateriais();
   }, []);
+
+  const carregarMateriais = async () => {
+    setCarregandoMateriais(true);
+    const items = await MaterialService.listar();
+    setMateriais(items);
+    setCarregandoMateriais(false);
+  };
 
   const carregarLista = async () => {
     const items = await OrcService.listar(user.id);
@@ -804,6 +954,22 @@ function TelaOrcamentos({ user, aoSair }) {
       const preco = parseFloat(novo.precoUnit.replace(',', '.')) || 0;
       novo.total = (qtd * preco).toFixed(2).replace('.', ',');
       return novo;
+    });
+  };
+
+  // Chamado quando um material é selecionado no datalist:
+  // preenche material e precoUnit automaticamente, recalcula total
+  const aoSelecionarMaterial = (material) => {
+    setForm((prev) => {
+      const precoStr = String(material.preco).replace(',', '.');
+      const qtd = parseFloat(prev.quantidade.replace(',', '.')) || 0;
+      const preco = parseFloat(precoStr) || 0;
+      return {
+        ...prev,
+        material: material.nome,
+        precoUnit: precoStr,
+        total: (qtd * preco).toFixed(2).replace('.', ','),
+      };
     });
   };
 
@@ -884,11 +1050,12 @@ function TelaOrcamentos({ user, aoSair }) {
           {/* ── FORMULÁRIO ── */}
           <Text style={st.secaoTitulo}>Novo Orçamento</Text>
           <View style={st.formCard}>
-            <Campo
-              label="Material"
+            <CampoMaterial
               valor={form.material}
               aoMudar={(v) => atualizarCampo('material', v)}
-              placeholder="ex: BOPP"
+              aoSelecionarMaterial={aoSelecionarMaterial}
+              materiais={materiais}
+              carregandoMateriais={carregandoMateriais}
             />
 
             <View style={st.linha2}>
@@ -1282,6 +1449,49 @@ const st = StyleSheet.create({
     elevation: 3,
   },
   linha2: { flexDirection: 'row' },
+
+  // ── DATALIST DE MATERIAL ─────────────────────
+  campoLinhaAberta: {
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderBottomColor: 'transparent',
+  },
+  sugestoesLista: {
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderTopWidth: 0,
+    borderColor: '#e8d5be',
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
+    overflow: 'hidden',
+    zIndex: 20,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+  },
+  sugestaoItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderTopWidth: 1,
+    borderTopColor: '#f5ede3',
+  },
+  sugestaoNome: {
+    fontSize: 14,
+    color: COR.marrom,
+    fontWeight: '500',
+    flex: 1,
+  },
+  sugestaoPreco: {
+    fontSize: 13,
+    color: COR.laranja,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
 
   totalBox: {
     backgroundColor: COR.laranja,
