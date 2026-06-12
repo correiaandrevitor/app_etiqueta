@@ -16,8 +16,16 @@ import {
   Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore, collection, getDocs } from 'firebase/firestore';
+
+// ─────────────────────────────────────────────
+// FIREBASE v8 — require() em vez de import
+// O bundler do Expo Snack tem um problema de interop
+// CJS/ESM: `import firebase from 'firebase/app'`
+// retorna undefined. O require() retorna module.exports
+// diretamente, sem passar pela camada de interop.
+// ─────────────────────────────────────────────
+const firebase = require('firebase/app');
+require('firebase/firestore');
 
 // ─────────────────────────────────────────────
 // CORES
@@ -36,8 +44,8 @@ const COR = {
 
 // ─────────────────────────────────────────────
 // FIREBASE — Configuração
-// Substitua os valores abaixo pelos do seu projeto Firebase:
-// Console → Configurações do Projeto → Seus apps → SDK
+// Substitua os valores abaixo pelos do seu projeto:
+// Console Firebase → Configurações → Seus apps → SDK
 // ─────────────────────────────────────────────
 const FIREBASE_CONFIG = {
   apiKey: 'SUA_API_KEY',
@@ -50,8 +58,11 @@ const FIREBASE_CONFIG = {
 
 // Inicializa apenas uma vez (evita duplicação no hot reload)
 const firebaseApp =
-  getApps().length === 0 ? initializeApp(FIREBASE_CONFIG) : getApps()[0];
-const firestore = getFirestore(firebaseApp);
+  firebase.apps.length === 0
+    ? firebase.initializeApp(FIREBASE_CONFIG)
+    : firebase.apps[0];
+
+const firestore = firebase.firestore();
 
 // ─────────────────────────────────────────────
 // MATERIAL SERVICE — busca materiais/preços no Firestore
@@ -61,7 +72,7 @@ const firestore = getFirestore(firebaseApp);
 const MaterialService = {
   async listar() {
     try {
-      const snap = await getDocs(collection(firestore, 'materiais'));
+      const snap = await firestore.collection('materiais').get();
       return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     } catch (e) {
       console.warn('Firebase: erro ao buscar materiais', e);
@@ -226,7 +237,7 @@ function ModalConfirmar({ visivel, mensagem, aoConfirmar, aoCancelar }) {
       onRequestClose={aoCancelar}>
       <View style={st.overlay}>
         <View style={st.confirmBox}>
-          <Text style={st.confirmTitulo}>Confirmar exclusão</Text>
+          <Text style={st.confirmTitulo}>Confirmar exclusao</Text>
           <Text style={st.confirmMsg}>{mensagem}</Text>
           <View style={st.confirmBtns}>
             <TouchableOpacity
@@ -255,7 +266,7 @@ function ModalEnviar({ visivel, item, remetente, aoFechar, aoToast }) {
   const [telefone, setTelefone] = useState('');
   const [email, setEmail] = useState('');
   const [enviando, setEnviando] = useState(false);
-  const [abaSelecionada, setAbaSelecionada] = useState('whatsapp'); // 'whatsapp' ou 'email'
+  const [abaSelecionada, setAbaSelecionada] = useState('whatsapp');
 
   const fmtValor = (n) => 'R$ ' + Number(n).toFixed(2).replace('.', ',');
   const fmtData = (iso) => new Date(iso).toLocaleDateString('pt-BR');
@@ -267,12 +278,10 @@ function ModalEnviar({ visivel, item, remetente, aoFechar, aoToast }) {
     aoFechar();
   };
 
-  // Mantém apenas dígitos no campo de telefone
   const aoMudarTelefone = (texto) => {
     setTelefone(texto.replace(/\D/g, ''));
   };
 
-  // Formata para exibição: (11) 91234-5678
   const telefoneFormatado = () => {
     const d = telefone;
     if (d.length <= 2) return d.length ? '(' + d : '';
@@ -309,15 +318,11 @@ function ModalEnviar({ visivel, item, remetente, aoFechar, aoToast }) {
       aoToast('Informe um número com DDD (mínimo 10 dígitos)', 'erro');
       return;
     }
-
     setEnviando(true);
-
-    // Número no formato internacional Brasil: 55 + DDD + número
     const numeroIntl = '55' + telefone;
     const mensagem = encodeURIComponent(gerarMensagem());
     const url = 'whatsapp://send?phone=' + numeroIntl + '&text=' + mensagem;
     const urlFallback = 'https://wa.me/' + numeroIntl + '?text=' + mensagem;
-
     try {
       const podeNativo = await Linking.canOpenURL(url);
       if (podeNativo) {
@@ -339,14 +344,11 @@ function ModalEnviar({ visivel, item, remetente, aoFechar, aoToast }) {
       aoToast('Informe um e-mail válido', 'erro');
       return;
     }
-
     setEnviando(true);
-
     const assunto = encodeURIComponent('Orçamento de Etiquetas');
     const corpo = encodeURIComponent(gerarMensagem());
     const urlEmail =
       'mailto:' + email + '?subject=' + assunto + '&body=' + corpo;
-
     try {
       await Linking.openURL(urlEmail);
       aoToast('E-mail aberto com o orçamento!');
@@ -368,7 +370,6 @@ function ModalEnviar({ visivel, item, remetente, aoFechar, aoToast }) {
       onRequestClose={limparEFechar}>
       <View style={st.overlay}>
         <View style={st.enviarBox}>
-          {/* Cabeçalho */}
           <View style={st.enviarHeader}>
             <Text style={st.enviarTitulo}>📤 Enviar Orçamento</Text>
             <TouchableOpacity
@@ -378,7 +379,6 @@ function ModalEnviar({ visivel, item, remetente, aoFechar, aoToast }) {
             </TouchableOpacity>
           </View>
 
-          {/* Abas */}
           <View style={st.abas}>
             <TouchableOpacity
               style={[
@@ -409,7 +409,6 @@ function ModalEnviar({ visivel, item, remetente, aoFechar, aoToast }) {
             </TouchableOpacity>
           </View>
 
-          {/* Resumo do orçamento */}
           <View style={st.enviarResumo}>
             <View style={st.enviarResumoLinha}>
               <Text style={st.enviarResumoLabel}>Total</Text>
@@ -423,7 +422,6 @@ function ModalEnviar({ visivel, item, remetente, aoFechar, aoToast }) {
             </Text>
           </View>
 
-          {/* CONTEÚDO DA ABA WHATSAPP */}
           {abaSelecionada === 'whatsapp' && (
             <>
               <Text style={st.enviarCampoLabel}>
@@ -450,7 +448,6 @@ function ModalEnviar({ visivel, item, remetente, aoFechar, aoToast }) {
             </>
           )}
 
-          {/* CONTEÚDO DA ABA EMAIL */}
           {abaSelecionada === 'email' && (
             <>
               <Text style={st.enviarCampoLabel}>E-mail do cliente</Text>
@@ -473,7 +470,6 @@ function ModalEnviar({ visivel, item, remetente, aoFechar, aoToast }) {
             </>
           )}
 
-          {/* Botões */}
           <View style={st.confirmBtns}>
             <TouchableOpacity
               style={st.btnCancelar}
@@ -511,12 +507,6 @@ function IndicadorForcaSenha({ senha, mostrarRequisitos = false }) {
   const temMaiuscula = /[A-Z]/.test(senha);
   const temNumero = /[0-9]/.test(senha);
   const temEspecial = /[!@#$%^&*]/.test(senha);
-  const atendeTodos =
-    temMinuscula &&
-    temMaiuscula &&
-    temNumero &&
-    temEspecial &&
-    senha.length >= 8;
 
   if (!mostrarRequisitos) return null;
 
@@ -548,8 +538,6 @@ function IndicadorForcaSenha({ senha, mostrarRequisitos = false }) {
 
 // ─────────────────────────────────────────────
 // COMPONENTE: CAMPO MATERIAL (datalist + Firebase)
-// Exibe autocomplete com materiais do Firestore.
-// Ao selecionar, dispara aoSelecionarMaterial({ nome, preco }).
 // ─────────────────────────────────────────────
 function CampoMaterial({
   valor,
@@ -592,11 +580,7 @@ function CampoMaterial({
   return (
     <View style={[st.campoWrap, { zIndex: 10 }]}>
       <Text style={st.campoLabel}>Material</Text>
-      <View
-        style={[
-          st.campoLinha,
-          aberta && st.campoLinhaAberta,
-        ]}>
+      <View style={[st.campoLinha, aberta && st.campoLinhaAberta]}>
         <TextInput
           style={[st.input, { flex: 1 }]}
           value={valor}
@@ -720,7 +704,6 @@ function TelaLogin({ aoLogar }) {
       setErroMsg('A senha deve ter pelo menos 8 caracteres');
       return;
     }
-
     if (!modoLogin && !AuthService._validarSenha(senha)) {
       setErroMsg(
         'A senha deve conter: maiúscula, minúscula, número e caractere especial (!@#$%^&*)'
@@ -731,7 +714,6 @@ function TelaLogin({ aoLogar }) {
     setCarregando(true);
     try {
       if (!modoLogin) {
-        // Validações exclusivas do cadastro
         if (email.trim().toLowerCase() !== confirmEmail.trim().toLowerCase()) {
           setErroMsg('Os e-mails não coincidem');
           return;
@@ -762,7 +744,6 @@ function TelaLogin({ aoLogar }) {
     }
   };
 
-  // Botão de olho reutilizável
   const BotaoOlho = ({ mostrar, aoAlternar }) => (
     <TouchableOpacity
       onPress={aoAlternar}
@@ -782,7 +763,6 @@ function TelaLogin({ aoLogar }) {
           contentContainerStyle={st.loginScroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
-          {/* Logo */}
           <View style={st.logoArea}>
             <View style={st.logoBox}>
               <Text style={st.logoEmoji}>🏷️</Text>
@@ -791,9 +771,7 @@ function TelaLogin({ aoLogar }) {
             <Text style={st.appSub}>Orçamentos de etiquetas</Text>
           </View>
 
-          {/* Card */}
           <View style={st.loginCard}>
-            {/* Tabs */}
             <View style={st.tabs}>
               <TouchableOpacity
                 style={[st.tabBtn, modoLogin && st.tabBtnAtivo]}
@@ -815,7 +793,6 @@ function TelaLogin({ aoLogar }) {
               </TouchableOpacity>
             </View>
 
-            {/* Mensagens de feedback */}
             {!!erroMsg && (
               <View style={st.erroBox}>
                 <Text style={st.erroTexto}>⚠ {erroMsg}</Text>
@@ -827,7 +804,6 @@ function TelaLogin({ aoLogar }) {
               </View>
             )}
 
-            {/* ── CAMPO: E-MAIL ── */}
             <Campo
               label="E-mail"
               valor={email}
@@ -836,7 +812,6 @@ function TelaLogin({ aoLogar }) {
               teclado="email-address"
             />
 
-            {/* ── CAMPO: CONFIRMAR E-MAIL (só no cadastro) ── */}
             {!modoLogin && (
               <Campo
                 label="Confirmar e-mail"
@@ -847,7 +822,6 @@ function TelaLogin({ aoLogar }) {
               />
             )}
 
-            {/* ── CAMPO: SENHA ── */}
             <Campo
               label="Senha"
               valor={senha}
@@ -862,12 +836,10 @@ function TelaLogin({ aoLogar }) {
               }
             />
 
-            {/* Indicador de força da senha (só no cadastro) */}
             {!modoLogin && (
               <IndicadorForcaSenha senha={senha} mostrarRequisitos={true} />
             )}
 
-            {/* ── CAMPO: CONFIRMAR SENHA (só no cadastro) ── */}
             {!modoLogin && (
               <Campo
                 label="Confirmar senha"
@@ -884,7 +856,6 @@ function TelaLogin({ aoLogar }) {
               />
             )}
 
-            {/* Botão principal */}
             <TouchableOpacity
               style={[st.btnPrimario, carregando && st.btnDesabilitado]}
               onPress={enviar}
@@ -925,7 +896,7 @@ function TelaOrcamentos({ user, aoSair }) {
   const [carregando, setCarregando] = useState(false);
   const [toast, setToast] = useState(null);
   const [confirmar, setConfirmar] = useState(null);
-  const [enviarItem, setEnviarItem] = useState(null); // item sendo enviado
+  const [enviarItem, setEnviarItem] = useState(null);
 
   useEffect(() => {
     carregarLista();
@@ -957,8 +928,6 @@ function TelaOrcamentos({ user, aoSair }) {
     });
   };
 
-  // Chamado quando um material é selecionado no datalist:
-  // preenche material e precoUnit automaticamente, recalcula total
   const aoSelecionarMaterial = (material) => {
     setForm((prev) => {
       const precoStr = String(material.preco).replace(',', '.');
@@ -1026,7 +995,6 @@ function TelaOrcamentos({ user, aoSair }) {
     <SafeAreaView style={st.mainSafe}>
       <StatusBar barStyle="light-content" backgroundColor={COR.laranjaEsc} />
 
-      {/* Barra de topo */}
       <View style={st.topBar}>
         <Text style={st.topEmail} numberOfLines={1}>
           {user.email}
@@ -1047,7 +1015,6 @@ function TelaOrcamentos({ user, aoSair }) {
           contentContainerStyle={st.mainScroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
-          {/* ── FORMULÁRIO ── */}
           <Text style={st.secaoTitulo}>Novo Orçamento</Text>
           <View style={st.formCard}>
             <CampoMaterial
@@ -1118,7 +1085,6 @@ function TelaOrcamentos({ user, aoSair }) {
             </TouchableOpacity>
           </View>
 
-          {/* ── LISTA ── */}
           <View style={st.listaHeader}>
             <Text style={st.secaoTitulo}>Orçamentos Salvos</Text>
             <View style={st.contadorBadge}>
@@ -1136,7 +1102,6 @@ function TelaOrcamentos({ user, aoSair }) {
           ) : (
             lista.map((item) => (
               <View key={item.id} style={st.itemCard}>
-                {/* Informações */}
                 <View style={st.itemInfo}>
                   <Text style={st.itemTotal}>
                     R$ {formatarValor(item.total)}
@@ -1151,14 +1116,14 @@ function TelaOrcamentos({ user, aoSair }) {
                     <Text style={st.itemLinha}>↔️ Largura: {item.largura}</Text>
                   )}
                   {!!item.comprimento && (
-                    <Text style={st.itemLinha}>↕️ Comprimento: {item.comprimento}</Text>
+                    <Text style={st.itemLinha}>
+                      ↕️ Comprimento: {item.comprimento}
+                    </Text>
                   )}
                   <Text style={st.itemData}>{formatarData(item.criadoEm)}</Text>
                 </View>
 
-                {/* Ações */}
                 <View style={st.itemAcoes}>
-                  {/* Botão Enviar */}
                   <TouchableOpacity
                     style={st.btnEnviarCard}
                     onPress={() => setEnviarItem(item)}
@@ -1167,7 +1132,6 @@ function TelaOrcamentos({ user, aoSair }) {
                     <Text style={st.btnEnviarCardTexto}>Enviar</Text>
                   </TouchableOpacity>
 
-                  {/* Botão Excluir */}
                   <TouchableOpacity
                     style={st.btnDeletar}
                     onPress={() => pedirDelecao(item.id)}
@@ -1183,7 +1147,6 @@ function TelaOrcamentos({ user, aoSair }) {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Toast */}
       {!!toast && (
         <Toast
           mensagem={toast.mensagem}
@@ -1192,7 +1155,6 @@ function TelaOrcamentos({ user, aoSair }) {
         />
       )}
 
-      {/* Modal: confirmar exclusão */}
       <ModalConfirmar
         visivel={!!confirmar}
         mensagem={confirmar ? confirmar.mensagem : ''}
@@ -1200,7 +1162,6 @@ function TelaOrcamentos({ user, aoSair }) {
         aoCancelar={() => setConfirmar(null)}
       />
 
-      {/* Modal: enviar orçamento */}
       <ModalEnviar
         visivel={!!enviarItem}
         item={enviarItem}
@@ -1619,7 +1580,6 @@ const st = StyleSheet.create({
     padding: 24,
   },
 
-  // Modal excluir
   confirmBox: {
     backgroundColor: COR.card,
     borderRadius: 18,
@@ -1684,7 +1644,6 @@ const st = StyleSheet.create({
   enviarTitulo: { fontSize: 17, fontWeight: '700', color: COR.marrom },
   enviarFechar: { fontSize: 18, color: '#aaa', fontWeight: '700' },
 
-  // Abas do modal
   abas: {
     flexDirection: 'row',
     backgroundColor: '#f5ede3',
