@@ -18,13 +18,18 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ─────────────────────────────────────────────
-// FIREBASE v8 — require() em vez de import
-// O bundler do Expo Snack tem um problema de interop
-// CJS/ESM: `import firebase from 'firebase/app'`
-// retorna undefined. O require() retorna module.exports
-// diretamente, sem passar pela camada de interop.
+// FIREBASE v8 — Importação robusta para Expo Snack
+//
+// O Metro bundler pode retornar { default: firebase }
+// OU o próprio objeto firebase ao usar require().
+// O código abaixo detecta qual caso ocorreu e
+// garante que `firebase` sempre seja o objeto correto.
 // ─────────────────────────────────────────────
-const firebase = require('firebase/app');
+const _fbModule = require('firebase/app');
+const firebase =
+  typeof _fbModule.initializeApp === 'function'
+    ? _fbModule                         // require retornou o objeto direto
+    : _fbModule.default || _fbModule;   // require retornou { default: ... }
 require('firebase/firestore');
 
 // ─────────────────────────────────────────────
@@ -56,13 +61,23 @@ const FIREBASE_CONFIG = {
   appId: 'SEU_APP_ID',
 };
 
-// Inicializa apenas uma vez (evita duplicação no hot reload)
-const firebaseApp =
-  firebase.apps.length === 0
-    ? firebase.initializeApp(FIREBASE_CONFIG)
-    : firebase.apps[0];
+// ─────────────────────────────────────────────
+// Inicializa com segurança:
+// • Verifica se firebase.apps existe e tem itens (hot reload)
+// • Envolve em try/catch caso a config seja inválida
+// ─────────────────────────────────────────────
+let firebaseApp = null;
+let firestore = null;
 
-const firestore = firebase.firestore();
+try {
+  firebaseApp =
+    Array.isArray(firebase.apps) && firebase.apps.length > 0
+      ? firebase.apps[0]
+      : firebase.initializeApp(FIREBASE_CONFIG);
+  firestore = firebase.firestore();
+} catch (e) {
+  console.error('Firebase: erro na inicialização', e);
+}
 
 // ─────────────────────────────────────────────
 // MATERIAL SERVICE — busca materiais/preços no Firestore
@@ -71,6 +86,7 @@ const firestore = firebase.firestore();
 // ─────────────────────────────────────────────
 const MaterialService = {
   async listar() {
+    if (!firestore) return [];
     try {
       const snap = await firestore.collection('materiais').get();
       return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
@@ -90,13 +106,16 @@ const DB = {
       const raw = await AsyncStorage.getItem('@db:' + tabela);
       return raw ? JSON.parse(raw) : {};
     } catch (e) {
+      console.warn('DB.get erro:', e);
       return {};
     }
   },
   async set(tabela, dados) {
     try {
       await AsyncStorage.setItem('@db:' + tabela, JSON.stringify(dados));
-    } catch (e) {}
+    } catch (e) {
+      console.warn('DB.set erro:', e);
+    }
   },
 };
 
@@ -150,7 +169,7 @@ const AuthService = {
 
 // ─────────────────────────────────────────────
 // ORÇAMENTO SERVICE
-// ─────────────────────────────────────────────
+// ────────────────────────────────────────────
 const OrcService = {
   async salvar(userId, orc) {
     const dados = await DB.get('orcamentos');
@@ -209,6 +228,7 @@ function Toast({ mensagem, tipo = 'sucesso', aoEsconder }) {
     ]).start(() => {
       if (aoEsconder) aoEsconder();
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const bg = tipo === 'sucesso' ? '#15803d' : '#b91c1c';
@@ -901,6 +921,7 @@ function TelaOrcamentos({ user, aoSair }) {
   useEffect(() => {
     carregarLista();
     carregarMateriais();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const carregarMateriais = async () => {
