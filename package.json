@@ -2,9 +2,7 @@
   "dependencies": {
     "react-native-paper": "4.9.2",
     "@expo/vector-icons": "^15.0.3",
-    "@react-native-async-storage/async-storage": "2.2.0",
-    "firebase": "8.10.1",
-    "firebase/app": "*",
-    "firebase/firestore": "*"
+    "expo-status-bar": "~3.0.9",
+    "@react-native-async-storage/async-storage": "2.2.0"
   }
 }
