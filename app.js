@@ -575,8 +575,6 @@ const LISTA_MATERIAIS = [
   { nome: 'Vinil Branco', preco: 2.50 },
   { nome: 'Vinil Transparente', preco: 2.70 },
   { nome: 'Poliéster Prata', preco: 4.50 },
-  { nome: 'Void (Segurança)', preco: 6.00 },
-  { nome: 'Casca de Ovo', preco: 5.50 },
 ];
 
 const ORC_VAZIO = { 
