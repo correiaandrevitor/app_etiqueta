@@ -362,7 +362,7 @@ function IndicadorForcaSenha({ senha, mostrarRequisitos = false }) {
       <Requisito atendido={senha.length >= 8} texto="Mínimo 8 caracteres" />
       <Requisito atendido={temMinuscula && temMaiuscula} texto="Letras maiúsculas e minúsculas" />
       <Requisito atendido={temNumero} texto="Pelo menos um número" />
-      <Requisito atendido={temEspecial} texto="Caractere especial (!@#$%)" />
+      <Requisito atendido={temEspecial} texto="Caractere especial (!@#$%^&*)" />
     </View>
   );
 }
@@ -491,8 +491,8 @@ const LISTA_MATERIAIS = [
   { nome: 'Vinil Branco', preco: 2.50 },
   { nome: 'Vinil Transparente', preco: 2.70 },
   { nome: 'Poliéster Prata', preco: 4.50 },
-  { nome: 'Void (Segurança)', preco: 6.00 },
-  { nome: 'Casca de Ovo', preco: 5.50 },
+  // REMOVIDO: Void (Segurança)
+  // REMOVIDO: Casca de Ovo
 ];
 
 const ORC_VAZIO = { 
@@ -614,7 +614,7 @@ function TelaOrcamentos({ user, aoSair }) {
               {LISTA_MATERIAIS.map((m) => (
                 <TouchableOpacity key={m.nome} style={[st.modalListaItem, form.material === m.nome && st.modalListaItemAtivo]} onPress={() => { atualizarCampo('material', m.nome); setModalMaterial(false); }}>
                   <View style={{ flex: 1 }}>
-                    <Text style={[st.modalListaItemTexto, form.material === m.nome && st.modalListaItemTextoAtivo]}>{m.nome}</Text>
+                    <Text style={[st.modalListaItemTexto, form.material === m.nome && st.modalListaItemTextoAtiva]}>{m.nome}</Text>
                     <Text style={st.modalListaItemSub}>Preço base: R$ {m.preco.toFixed(2).replace('.', ',')}</Text>
                   </View>
                   {form.material === m.nome && <Text style={st.modalListaItemCheck}>✓</Text>}
@@ -670,56 +670,56 @@ const st = StyleSheet.create({
   btnSair: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
   btnSairTexto: { color: '#fff', fontSize: 12, fontWeight: '700' },
   mainScroll: { padding: 16 },
-  card: { backgroundColor: '#fff', borderRadius: 18, padding: 20, elevation: 3 },
-  cardTitulo: { fontSize: 18, fontWeight: '800', color: COR.marrom, marginBottom: 20 },
-  seletorMaterial: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fdf8f3', borderWidth: 1.5, borderColor: '#e8d5be', borderRadius: 10, padding: 14 },
-  seletorMaterialTexto: { fontSize: 15, color: COR.marrom, fontWeight: '600' },
-  totalBox: { backgroundColor: COR.marrom, borderRadius: 12, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 },
+  card: { backgroundColor: '#fff', borderRadius: 18, padding: 20, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8 },
+  cardTitulo: { fontSize: 18, fontWeight: '700', color: COR.marrom, marginBottom: 20 },
+  seletorMaterial: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fdf8f3', borderWidth: 1.5, borderColor: '#e8d5be', borderRadius: 10, paddingHorizontal: 14, paddingVertical: Platform.OS === 'ios' ? 13 : 10, marginBottom: 5 },
+  seletorMaterialTexto: { flex: 1, fontSize: 15, color: COR.marrom },
+  totalBox: { backgroundColor: COR.laranja, borderRadius: 12, padding: 15, marginVertical: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   totalLabel: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  totalSubLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '600' },
-  totalValor: { color: '#fff', fontSize: 22, fontWeight: '700' },
-  btnSalvar: { backgroundColor: COR.verde, borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginTop: 15 },
-  btnSalvarTexto: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  totalSubLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 11 },
+  totalValor: { color: '#fff', fontSize: 22, fontWeight: '800' },
+  btnSalvar: { backgroundColor: COR.marrom, borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
+  btnSalvarTexto: { color: '#fff', fontWeight: '700', fontSize: 14 },
   secaoTitulo: { fontSize: 16, fontWeight: '700', color: COR.marrom, marginTop: 25, marginBottom: 15 },
-  orcCard: { backgroundColor: '#fff', borderRadius: 12, padding: 15, marginBottom: 10, flexDirection: 'row', alignItems: 'center', elevation: 2 },
+  orcCard: { backgroundColor: '#fff', borderRadius: 15, padding: 15, marginBottom: 10, flexDirection: 'row', alignItems: 'center', elevation: 2 },
   orcCardInfo: { flex: 1 },
-  orcCardMat: { fontSize: 15, fontWeight: '700', color: COR.marrom },
-  orcCardDim: { fontSize: 13, color: '#8a6a4a', marginTop: 2 },
-  orcCardAcoes: { flexDirection: 'row', gap: 10 },
-  orcBtnAcao: { width: 40, height: 40, backgroundColor: COR.fundo, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
-  overlay: { flex: 1, backgroundColor: 'rgba(44, 26, 14, 0.6)', justifyContent: 'center', padding: 20 },
-  modalLista: { backgroundColor: '#fff', borderRadius: 20, maxHeight: '80%', padding: 20 },
-  modalListaHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
-  modalListaTitulo: { fontSize: 18, fontWeight: '800', color: COR.marrom },
-  modalListaFechar: { fontSize: 20, color: '#8a6a4a' },
-  modalListaItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#f0e0d0' },
-  modalListaItemAtivo: { backgroundColor: '#fff9f0' },
+  orcCardMat: { fontSize: 15, fontWeight: '700', color: COR.marrom, marginBottom: 3 },
+  orcCardDim: { fontSize: 13, color: '#8a6a4a' },
+  orcCardAcoes: { flexDirection: 'row' },
+  orcBtnAcao: { width: 40, height: 40, borderRadius: 20, backgroundColor: COR.fundo, justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalLista: { backgroundColor: '#fff', borderRadius: 20, width: '100%', maxHeight: '80%', overflow: 'hidden' },
+  modalListaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  modalListaTitulo: { fontSize: 17, fontWeight: '700', color: COR.marrom },
+  modalListaFechar: { fontSize: 18, color: '#999' },
+  modalListaItem: { flexDirection: 'row', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: '#f9f9f9' },
+  modalListaItemAtivo: { backgroundColor: '#fdf8f3' },
   modalListaItemTexto: { fontSize: 15, color: COR.marrom },
-  modalListaItemTextoAtivo: { color: COR.laranja, fontWeight: '700' },
+  modalListaItemTextoAtiva: { color: COR.laranja, fontWeight: '700' },
   modalListaItemSub: { fontSize: 12, color: '#8a6a4a', marginTop: 2 },
-  modalListaItemCheck: { fontSize: 18, color: COR.laranja, fontWeight: '700' },
-  toast: { position: 'absolute', bottom: 50, left: 20, right: 20, borderRadius: 12, padding: 16, flexDirection: 'row', alignItems: 'center', elevation: 10 },
-  toastTexto: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  confirmBox: { backgroundColor: '#fff', borderRadius: 20, padding: 25, alignItems: 'center' },
-  confirmTitulo: { fontSize: 18, fontWeight: '800', color: COR.marrom, marginBottom: 10 },
-  confirmMsg: { fontSize: 15, color: '#8a6a4a', textAlign: 'center', marginBottom: 25 },
-  confirmBtns: { flexDirection: 'row', gap: 15 },
-  btnCancelar: { flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1.5, borderColor: '#e8d5be', alignItems: 'center' },
-  btnCancelarTexto: { color: '#8a6a4a', fontWeight: '700' },
-  btnExcluir: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: '#ef4444', alignItems: 'center' },
-  btnExcluirTexto: { color: '#fff', fontWeight: '700' },
-  enviarBox: { backgroundColor: '#fff', borderRadius: 20, padding: 22, width: '100%', elevation: 12 },
-  enviarHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  enviarTitulo: { fontSize: 17, fontWeight: '700', color: COR.marrom },
-  enviarFechar: { fontSize: 18, color: '#aaa', fontWeight: '700' },
-  enviarResumo: { backgroundColor: '#fdf8f3', borderRadius: 12, padding: 14, marginBottom: 18, borderWidth: 1, borderColor: '#e8d5be' },
-  enviarResumoLinha: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  enviarResumoLabel: { fontSize: 12, color: '#8a6a4a', fontWeight: '600' },
-  enviarResumoTotal: { fontSize: 20, fontWeight: '700', color: COR.laranja },
-  enviarResumoDetalhe: { fontSize: 12, color: '#8a6a4a', lineHeight: 18 },
-  requisitoBox: { marginBottom: 15, padding: 10, backgroundColor: '#f8f9fa', borderRadius: 8 },
-  requisitoLinha: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  modalListaItemCheck: { color: COR.laranja, fontSize: 16, fontWeight: '700' },
+  toast: { position: 'absolute', bottom: 50, left: 20, right: 20, borderRadius: 12, padding: 15, elevation: 10 },
+  toastTexto: { color: '#fff', fontWeight: '600', textAlign: 'center' },
+  confirmBox: { backgroundColor: '#fff', borderRadius: 20, padding: 25, width: '100%', alignItems: 'center' },
+  confirmTitulo: { fontSize: 18, fontWeight: '700', color: COR.marrom, marginBottom: 10 },
+  confirmMsg: { fontSize: 14, color: '#8a6a4a', textAlign: 'center', marginBottom: 25 },
+  confirmBtns: { flexDirection: 'row', width: '100%' },
+  btnCancelar: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10, borderWidth: 1, borderColor: '#ddd', marginRight: 10 },
+  btnCancelarTexto: { color: '#666', fontWeight: '600' },
+  btnExcluir: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10, backgroundColor: '#ef4444' },
+  btnExcluirTexto: { color: '#fff', fontWeight: '600' },
+  enviarBox: { backgroundColor: '#fff', borderRadius: 20, padding: 25, width: '100%' },
+  enviarHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  enviarTitulo: { fontSize: 18, fontWeight: '700', color: COR.marrom },
+  enviarFechar: { fontSize: 18, color: '#999' },
+  enviarResumo: { backgroundColor: COR.fundo, borderRadius: 12, padding: 15, marginBottom: 20 },
+  enviarResumoLinha: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 },
+  enviarResumoLabel: { fontSize: 12, color: '#8a6a4a' },
+  enviarResumoTotal: { fontSize: 18, fontWeight: '800', color: COR.laranja },
+  enviarResumoDetalhe: { fontSize: 13, color: COR.marrom, fontWeight: '500' },
+  requisitoBox: { backgroundColor: '#fdf8f3', borderRadius: 10, padding: 12, marginBottom: 15, borderWidth: 1, borderColor: '#e8d5be' },
+  requisitoLinha: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
   requisitoTexto: { fontSize: 12 },
-  requisitoAtendido: { color: '#16a34a' },
-  requisitoNaoAtendido: { color: '#9ca3af' },
+  requisitoAtendido: { color: COR.verde, fontWeight: '600' },
+  requisitoNaoAtendido: { color: '#9a7560' },
 });
